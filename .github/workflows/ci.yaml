@@ -93,7 +93,7 @@ jobs:
 
       # Step B: Scan the exact locally built image with Trivy
       - name: Scan Built Image with Trivy
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME || 'yemisi76' }}/${{ matrix.service.image }}:${{ github.sha }}
           format: 'table'
