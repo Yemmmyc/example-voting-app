@@ -1,0 +1,26 @@
+# Version control
+.git
+.gitignore
+
+# Environment & Secrets
+.env
+.env.*
+*.env
+
+# .NET Build Artifacts & Output
+bin/
+obj/
+out/
+publish/
+
+# IDE & OS Files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

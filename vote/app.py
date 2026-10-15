@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, make_response, g
-from redis import Redis
 import os
 import socket
 import random
 import json
 import logging
+import time
+import uuid
 
 option_a = os.getenv('OPTION_A', "Cats")
 option_b = os.getenv('OPTION_B', "Dogs")
@@ -18,7 +19,8 @@ app.logger.setLevel(logging.INFO)
 
 def get_redis():
     if not hasattr(g, 'redis'):
-        g.redis = Redis(host="redis", db=0, socket_timeout=5)
+        import redis
+        g.redis = redis.Redis(host="redis", db=0, socket_timeout=5)
     return g.redis
 
 @app.route("/", methods=['POST','GET'])
@@ -33,7 +35,17 @@ def hello():
         redis = get_redis()
         vote = request.form['vote']
         app.logger.info('Received vote for %s', vote)
-        data = json.dumps({'voter_id': voter_id, 'vote': vote})
+        msg_id = str(uuid.uuid4())
+        # Monotonic timestamp + per-voter sequence tie-breaker
+        epoch_ms = int(time.time() * 1000)
+        voter_seq = redis.incr(f"voter:{voter_id}:seq")
+        version = (epoch_ms * 10000) + (voter_seq % 10000)
+        data = json.dumps({
+            'msg_id': msg_id,
+            'voter_id': voter_id,
+            'vote': vote,
+            'version': version
+        })
         redis.rpush('votes', data)
 
     resp = make_response(render_template(

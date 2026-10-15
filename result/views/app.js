@@ -7,31 +7,64 @@ var bg2 = document.getElementById('background-stats-2');
 app.controller('statsCtrl', function($scope){
   $scope.aPercent = 50;
   $scope.bPercent = 50;
+  $scope.total = 0;
+  $scope.aVotes = 0;
+  $scope.bVotes = 0;
+  $scope.connected = false;
+
+  var scoresListenerAttached = false;
 
   var updateScores = function(){
+    if (scoresListenerAttached) return;
+    scoresListenerAttached = true;
+
     socket.on('scores', function (json) {
-       data = JSON.parse(json);
-       var a = parseInt(data.a || 0);
-       var b = parseInt(data.b || 0);
+       var data;
+       try {
+         data = typeof json === 'string' ? JSON.parse(json) : json;
+       } catch (err) {
+         console.error('Error parsing scores payload:', err);
+         return;
+       }
+       if (!data) return;
+
+       var a = parseInt(data.a || 0, 10);
+       var b = parseInt(data.b || 0, 10);
 
        var percentages = getPercentages(a, b);
 
-       bg1.style.width = percentages.a + "%";
-       bg2.style.width = percentages.b + "%";
+       if (bg1) bg1.style.width = percentages.a + "%";
+       if (bg2) bg2.style.width = percentages.b + "%";
 
        $scope.$apply(function () {
          $scope.aPercent = percentages.a;
          $scope.bPercent = percentages.b;
+         $scope.aVotes = a;
+         $scope.bVotes = b;
          $scope.total = a + b;
        });
     });
   };
 
   var init = function(){
-    document.body.style.opacity=1;
+    document.body.style.opacity = 1;
     updateScores();
   };
-  socket.on('message',function(data){
+
+  socket.on('connect', function(){
+    $scope.$apply(function(){
+      $scope.connected = true;
+    });
+    init();
+  });
+
+  socket.on('disconnect', function(){
+    $scope.$apply(function(){
+      $scope.connected = false;
+    });
+  });
+
+  socket.on('message', function(data){
     init();
   });
 });

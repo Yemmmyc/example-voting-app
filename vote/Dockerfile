@@ -6,10 +6,15 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
+# Create a non-root system user and group
+RUN addgroup --system --gid 10001 appgroup && \
+    adduser --system --uid 10001 --ingroup appgroup appuser
+
 # Set the application directory
 WORKDIR /usr/local/app
+RUN chown -R appuser:appgroup /usr/local/app
 
-# Install our requirements.txt
+# Installing our requirements.txt
 COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -17,13 +22,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM base AS dev
 RUN pip install watchdog
 ENV FLASK_ENV=development
+
+# Switch to non-root user
+USER appuser
+
 CMD ["python", "app.py"]
 
 # final defines the stage that will bundle the application for production
 FROM base AS final
 
 # Copy our code from the current folder to the working directory inside the container
-COPY . .
+COPY --chown=appuser:appgroup . .
+
+# Switch to non-root user
+USER appuser
 
 # Make port 80 available for links and/or publish
 EXPOSE 80

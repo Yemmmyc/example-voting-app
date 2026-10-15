@@ -1,41 +1,98 @@
 <!DOCTYPE html>
-<html ng-app="catsvsdogs">
+<html lang="en" ng-app="catsvsdogs">
   <head>
     <meta charset="utf-8">
-    <title>Cats vs Dogs -- Result</title>
+    <title>Cats vs Dogs — Live Analytics</title>
     <base href="/index.html">
-    <meta name = "viewport" content = "width=device-width, initial-scale = 1.0">
-    <meta name="keywords" content="docker-compose, docker, stack">
-    <meta name="author" content="Docker">
-    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="docker, devops, results, socket.io, angularjs">
+    <meta name="author" content="DevOps Capstone">
+    <link rel="stylesheet" href="/stylesheets/style.css">
   </head>
-  <body ng-controller="statsCtrl" >
-     <div id="background-stats">
-       <div id="background-stats-1">
-       </div><!--
-      --><div id="background-stats-2">
-      </div>
-    </div>
-    <div id="content-container">
-      <div id="content-container-center">
-        <div id="choice">
-          <div class="choice cats">
-            <div class="label">Cats</div>
-            <div class="stat">{{aPercent | number:1}}%</div>
+  <body ng-controller="statsCtrl">
+    <div class="layout-wrapper">
+      <header class="app-header">
+        <div class="header-container">
+          <div class="brand-group">
+            <span class="brand-badge">ANALYTICS</span>
+            <span class="brand-title">Live Results Dashboard</span>
           </div>
-          <div class="divider"></div>
-          <div class="choice dogs">
-            <div class="label">Dogs</div>
-            <div class="stat">{{bPercent | number:1}}%</div>
+          <div class="status-indicator" title="Socket.IO real-time stream active">
+            <span class="pulse-dot" ng-class="{'is-disconnected': !connected}"></span>
+            <span class="status-text" ng-if="connected">Live Sync Active</span>
+            <span class="status-text" ng-if="!connected">Connecting...</span>
           </div>
         </div>
-      </div>
+      </header>
+
+      <main class="main-content">
+        <div class="hero-section">
+          <h1 class="hero-title">Voting Distribution</h1>
+          <p class="hero-subtitle">Aggregated voting telemetry processed via PostgreSQL and the .NET worker service.</p>
+        </div>
+
+        <!-- Metric Cards Container -->
+        <div id="choice" class="metrics-grid">
+          <!-- Option A (Cats) Card -->
+          <div class="metric-card card-cats" ng-class="{'is-leading': aPercent > bPercent && total > 0}">
+            <div class="card-top">
+              <span class="tag tag-cats">OPTION A</span>
+              <span class="leader-pill" ng-if="aPercent > bPercent && total > 0">Leading</span>
+            </div>
+            <div class="label">Cats</div>
+            <div class="stat-percentage">{{aPercent | number:1}}%</div>
+            <div class="stat-count" ng-if="aVotes !== undefined">{{aVotes}} {{aVotes == 1 ? 'vote' : 'votes'}}</div>
+          </div>
+
+          <!-- Option B (Dogs) Card -->
+          <div class="metric-card card-dogs" ng-class="{'is-leading': bPercent > aPercent && total > 0}">
+            <div class="card-top">
+              <span class="tag tag-dogs">OPTION B</span>
+              <span class="leader-pill" ng-if="bPercent > aPercent && total > 0">Leading</span>
+            </div>
+            <div class="label">Dogs</div>
+            <div class="stat-percentage">{{bPercent | number:1}}%</div>
+            <div class="stat-count" ng-if="bVotes !== undefined">{{bVotes}} {{bVotes == 1 ? 'vote' : 'votes'}}</div>
+          </div>
+        </div>
+
+        <!-- Unified Distribution Progress Bar -->
+        <div class="distribution-track-card">
+          <div class="track-header">
+            <span class="track-title">Vote Distribution</span>
+            <span class="track-summary" ng-if="total > 0">
+              <span ng-if="aPercent == bPercent">Tied (50% / 50%)</span>
+              <span ng-if="aPercent > bPercent">Cats +{{(aPercent - bPercent) | number:0}}%</span>
+              <span ng-if="bPercent > aPercent">Dogs +{{(bPercent - aPercent) | number:0}}%</span>
+            </span>
+          </div>
+          <!-- Preserved DOM IDs background-stats, background-stats-1, background-stats-2 -->
+          <div id="background-stats" class="progress-bar-track">
+            <div id="background-stats-1" class="progress-fill-cats" ng-style="{'width': aPercent + '%'}" style="width: 50%;"></div>
+            <div id="background-stats-2" class="progress-fill-dogs" ng-style="{'width': bPercent + '%'}" style="width: 50%;"></div>
+          </div>
+          <div class="track-legend">
+            <span class="legend-item"><span class="legend-swatch cats-swatch"></span> Cats ({{aPercent | number:1}}%)</span>
+            <span class="legend-item"><span class="legend-swatch dogs-swatch"></span> Dogs ({{bPercent | number:1}}%)</span>
+          </div>
+        </div>
+
+        <!-- Total Votes Banner -->
+        <div id="result" class="total-votes-banner">
+          <div class="total-counter">
+            <span class="total-label">Total Submissions:</span>
+            <span class="total-value" ng-if="total == 0">No votes yet</span>
+            <span class="total-value" ng-if="total == 1">1 vote</span>
+            <span class="total-value" ng-if="total >= 2">{{total}} votes</span>
+          </div>
+        </div>
+      </main>
+
+      <footer class="app-footer">
+        <span>Results Service &bull; Node.js Express &bull; Socket.IO &bull; PostgreSQL Consumer</span>
+      </footer>
     </div>
-    <div id="result">
-      <span ng-if="total == 0">No votes yet</span>
-      <span ng-if="total == 1">{{total}} vote</span>
-      <span ng-if="total >= 2">{{total}} votes</span>
-    </div>
+
     <script src="socket.io.js"></script>
     <script src="angular.min.js"></script>
     <script src="app.js"></script>

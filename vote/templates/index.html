@@ -1,49 +1,124 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>{{option_a}} vs {{option_b}}!</title>
-    <base href="/index.html">
-    <meta name = "viewport" content = "width=device-width, initial-scale = 1.0">
-    <meta name="keywords" content="docker-compose, docker, stack">
-    <meta name="author" content="Tutum dev team">
-    <link rel='stylesheet' href="{{ url_for('static',filename='stylesheets/style.css') }}" />
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <title>{{option_a}} vs {{option_b}} — Voting Portal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="docker, devops, voting, cloud-native">
+    <meta name="author" content="DevOps Capstone">
+    <link rel="stylesheet" href="{{ url_for('static', filename='stylesheets/style.css') }}">
   </head>
   <body>
-    <div id="content-container">
-      <div id="content-container-center">
-        <h3>{{option_a}} vs {{option_b}}!</h3>
-        <form id="choice" name='form' method="POST" action="/">
-          <button id="a" type="submit" name="vote" class="a" value="a">{{option_a}}</button>
-          <button id="b" type="submit" name="vote" class="b" value="b">{{option_b}}</button>
+    <div class="layout-wrapper">
+      <header class="app-header">
+        <div class="header-container">
+          <div class="brand-group">
+            <span class="brand-badge">DEVOPS</span>
+            <span class="brand-title">Voting Portal</span>
+          </div>
+          <div class="status-indicator" title="Service operational">
+            <span class="pulse-dot"></span>
+            <span class="status-text">Voting Service Online</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div class="hero-section">
+          <h1 class="hero-title">{{option_a}} vs {{option_b}}</h1>
+          <p class="hero-subtitle">Select an option below to submit your vote. Live results update instantly across the cluster.</p>
+        </div>
+
+        <form id="choice" name="form" method="POST" action="/" class="voting-form">
+          <div class="cards-grid">
+            <!-- Option A Card -->
+            <div class="card-wrapper">
+              <button
+                id="a"
+                type="submit"
+                name="vote"
+                value="a"
+                class="vote-btn vote-btn-a {% if vote == 'a' %}is-selected{% elif vote == 'b' %}is-unselected{% endif %}" aria-label="Vote for {{option_a}}"
+                {% if vote == 'a' %}disabled aria-pressed="true"{% else %}aria-pressed="false"{% endif %}
+              >
+                <div class="card-header">
+                  <span class="tag tag-a">OPTION A</span>
+                  {% if vote == 'a' %}
+                    <span class="selected-badge">
+                      <svg class="check-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                      </svg>
+                      Voted
+                    </span>
+                  {% endif %}
+                </div>
+                <div class="option-name">{{option_a}}</div>
+                <div class="card-footer">
+                  {% if vote == 'a' %}
+                    <span class="action-text">Current Choice</span>
+                  {% elif vote == 'b' %}
+                    <span class="action-text">Switch to {{option_a}} &rarr;</span>
+                  {% else %}
+                    <span class="action-text">Cast Vote &rarr;</span>
+                  {% endif %}
+                </div>
+              </button>
+            </div>
+
+            <!-- Option B Card -->
+            <div class="card-wrapper">
+              <button
+                id="b"
+                type="submit"
+                name="vote"
+                value="b"
+                class="vote-btn vote-btn-b {% if vote == 'b' %}is-selected{% elif vote == 'a' %}is-unselected{% endif %}" aria-label="Vote for {{option_b}}"
+                {% if vote == 'b' %}disabled aria-pressed="true"{% else %}aria-pressed="false"{% endif %}
+              >
+                <div class="card-header">
+                  <span class="tag tag-b">OPTION B</span>
+                  {% if vote == 'b' %}
+                    <span class="selected-badge">
+                      <svg class="check-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                      </svg>
+                      Voted
+                    </span>
+                  {% endif %}
+                </div>
+                <div class="option-name">{{option_b}}</div>
+                <div class="card-footer">
+                  {% if vote == 'b' %}
+                    <span class="action-text">Current Choice</span>
+                  {% elif vote == 'a' %}
+                    <span class="action-text">Switch to {{option_b}} &rarr;</span>
+                  {% else %}
+                    <span class="action-text">Cast Vote &rarr;</span>
+                  {% endif %}
+                </div>
+              </button>
+            </div>
+          </div>
         </form>
-        <div id="tip">
-          (Tip: you can change your vote)
+
+        <div class="meta-section">
+          <div id="tip" class="tip-card">
+            <svg class="tip-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <span>Tip: You can change your vote at any time by selecting the alternate option.</span>
+          </div>
+
+          <div id="hostname" class="hostname-pill">
+            <span class="mono-label">HOST</span>
+            <code class="mono-value">{{hostname}}</code>
+          </div>
         </div>
-        <div id="hostname">
-          Processed by container ID {{hostname}}
-        </div>
-      </div>
+      </main>
+
+      <footer class="app-footer">
+        <span>Voting Service &bull; Flask &bull; Redis Queue &bull; Non-Root Runtime</span>
+      </footer>
     </div>
-    <script src="http://code.jquery.com/jquery-latest.min.js" type="text/javascript"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.js"></script>
-
-    {% if vote %}
-    <script>
-      var vote = "{{vote}}";
-
-      if(vote == "a"){
-        $(".a").prop('disabled', true);
-        $(".a").html('{{option_a}} <i class="fa fa-check-circle"></i>');
-        $(".b").css('opacity','0.5');
-      }
-      if(vote == "b"){
-        $(".b").prop('disabled', true);
-        $(".b").html('{{option_b}} <i class="fa fa-check-circle"></i>');
-        $(".a").css('opacity','0.5');
-      }
-    </script>
-    {% endif %}
   </body>
 </html>
