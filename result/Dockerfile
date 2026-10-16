@@ -1,7 +1,8 @@
-FROM node:18-slim AS base
+FROM node:22-slim AS base
 
-# Add curl for healthcheck and tini for process supervision
+# Add curl for healthcheck and tini for process supervision, upgrade base OS packages
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends curl tini && \
     rm -rf /var/lib/apt/lists/*
 
