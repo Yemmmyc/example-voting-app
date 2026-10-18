@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote
+  labels:
+    {{- include "voting-app.labels" . | nindent 4 }}
+    app: vote
+spec:
+  replicas: {{ .Values.vote.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: vote
+  template:
+    metadata:
+      labels:
+        {{- include "voting-app.labels" . | nindent 8 }}
+        app: vote
+    spec:
+      containers:
+        - name: vote
+          image: "{{ .Values.vote.image.repository }}:{{ .Values.vote.image.tag }}"
+          imagePullPolicy: {{ .Values.vote.image.pullPolicy | default "IfNotPresent" }}
+          {{- if .Values.vote.env }}
+          env:
+            {{- if .Values.vote.env.optionA }}
+            - name: OPTION_A
+              value: {{ .Values.vote.env.optionA | quote }}
+            {{- end }}
+            {{- if .Values.vote.env.optionB }}
+            - name: OPTION_B
+              value: {{ .Values.vote.env.optionB | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: vote
+              containerPort: 80
+          {{- with .Values.vote.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

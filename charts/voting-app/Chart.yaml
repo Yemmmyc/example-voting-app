@@ -1,0 +1,10 @@
+apiVersion: v2
+name: voting-app
+description: A Helm chart for deploying the Example Voting App (Vote, Result, Worker, Redis, PostgreSQL)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+icon: https://raw.githubusercontent.com/docker/awesome-compose/master/images/voting-app.png
+maintainers:
+  - name: Yemisi Okunrounmu
+    email: yemisi76@users.noreply.github.com

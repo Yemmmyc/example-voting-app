@@ -1,0 +1,17 @@
+{{- if .Values.db.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  labels:
+    {{- include "voting-app.labels" . | nindent 4 }}
+    app: db
+spec:
+  type: {{ .Values.db.service.type | default "ClusterIP" }}
+  ports:
+    - name: db-service
+      port: {{ .Values.db.service.port | default 5432 }}
+      targetPort: {{ .Values.db.service.targetPort | default 5432 }}
+  selector:
+    app: db
+{{- end }}

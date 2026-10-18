@@ -1,0 +1,17 @@
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    {{- include "voting-app.labels" . | nindent 4 }}
+    app: redis
+spec:
+  type: {{ .Values.redis.service.type | default "ClusterIP" }}
+  ports:
+    - name: redis-service
+      port: {{ .Values.redis.service.port | default 6379 }}
+      targetPort: {{ .Values.redis.service.targetPort | default 6379 }}
+  selector:
+    app: redis
+{{- end }}
