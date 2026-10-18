@@ -63,14 +63,29 @@ This project is evaluated against the *DevOps Capstone Projects (Beginner Editio
 | **4. Automate with GitHub Actions** | Push triggers tests, Trivy scan, build and push tagged with commit SHA. | `.github/workflows/ci.yaml` runs worker tests, Trivy security gate, and pushes to Docker Hub. | **CI Verified / CD Outstanding** (Builds/scans/pushes; does not auto-deploy to k8s). |
 | **5. Deploy and roll back with Helm** | One chart, one values file. Ship a bad release on purpose, then run `helm rollback`. | Helm chart under `charts/voting-app/`, single `values.yaml`, tested failure & rollback. | **Verified on Local Cluster** (Revision 1 deployed, Revision 2 failed, Revision 3 restored). |
 
-### Hand In & "Done Means" Alignment
+### Hand In Deliverables Status (Page 5 Brief)
 
-* **Forked repo with clear README**: Implemented.
-* **Architecture diagram**: Included above (both original Excalidraw reference and Mermaid diagram).
-* **Terraform code and one Helm chart**: Present in [`terraform/`](terraform/) and [`charts/voting-app/`](charts/voting-app/).
-* **Working GitHub Actions pipeline**: CI pipeline verified; automated CD deployment to Kubernetes is listed under outstanding work.
-* **Secrets in Git**: **Partially Met / Known Gap**. Docker Hub registry credentials (`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`) are managed outside Git via GitHub Actions secrets. However, default database credentials (`POSTGRES_USER` and `POSTGRES_PASSWORD` set to `postgres`) remain configured in plain text in [`charts/voting-app/values.yaml`](charts/voting-app/values.yaml) and [`docker-compose.yml`](docker-compose.yml).
-* **Rollback shown live**: Verified locally with Helm revision history.
+* **Forked repo with a clear README**: Present (documents architecture, local run, CI pipeline, Helm operations, and explicit gaps).
+* **Terraform code and one Helm chart**: Present in [`terraform/`](terraform/) (targets default VPC EKS) and [`charts/voting-app/`](charts/voting-app/) (unified chart & `values.yaml`).
+* **A working GitHub Actions pipeline**: Present in [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml) (automates application tests, container builds, Trivy security scan, and Docker Hub publishing).
+* **Architecture diagram**: Present (includes both the original Excalidraw reference and dedicated Mermaid diagrams).
+
+### "Done Means" Authoritative Assessment (Page 5 Brief)
+
+The project is assessed against the four completion criteria defined in the brief:
+
+1. **One push builds, scans and deploys**: **NOT YET MET (Outstanding Gap)**
+   - The current GitHub Actions workflow validates code and pushes verified images to Docker Hub on merge to `main`.
+   - Automated CD deployment to a live Kubernetes cluster is **not** implemented; the pipeline stops at registry publishing.
+2. **The environment rebuilds from code**: **PARTIALLY MET (Local Demonstrated / Cloud Outstanding)**
+   - Local deployment and workload recovery were verified using Docker Compose and Helm.
+   - Cloud environment recreation from code (provisioning, destroying, and recreating the AWS EKS cluster via Terraform) has **not** been demonstrated because AWS infrastructure has not been provisioned.
+3. **No secrets in Git**: **NOT YET MET (Outstanding Gap)**
+   - Docker Hub credentials are appropriately secured via GitHub Actions secrets.
+   - However, default database credentials (`POSTGRES_USER: "postgres"`, `POSTGRES_PASSWORD: "postgres"`) remain tracked in plain text in [`charts/voting-app/values.yaml`](charts/voting-app/values.yaml) and [`docker-compose.yml`](docker-compose.yml). Full compliance requires removing and rotating hardcoded credentials and integrating a secret manager.
+4. **Rollback is shown live**: **MET ON LOCAL CLUSTER (Cloud Demonstration Pending)**
+   - Verified on a local `kind` Kubernetes cluster: Revision 1 deployed healthy workloads, Revision 2 failed due to an intentional bad image tag, and `helm rollback voting-app 1` generated Revision 3, successfully restoring healthy running workloads.
+   - Demonstrating rollback on provisioned AWS EKS remains pending cloud deployment.
 
 ---
 
@@ -361,12 +376,12 @@ The following operational evidence was verified during capstone testing:
 * **Inter-Service Communication**:
   - Worker console logs verified successful database connection (`Connected to db`) and active Redis resolution (`Connecting to redis` / `Found redis at <ip>`).
 * **Simulated Bad Release & Rollback**:
-  - **Revision 1**: Initial deployment of verified application release.
-  - **Revision 2**: Triggered intentional failure via an invalid Vote container image tag, producing `ImagePullBackOff` and a failed rollout.
-  - **Revision 3**: Executed `helm rollback voting-app 1 -n capstone`, successfully restoring all pods to `Running` status under Revision 3.
-* **CI/CD Security Gates**:
+  - **Revision 1**: Initial deployment of the verified application release.
+  - **Revision 2**: Deliberately failed release triggered by deploying an invalid Vote container image tag, producing `ImagePullBackOff` and an unhealthy rollout.
+  - **Revision 3**: Executed a rollback to revision 1 (`helm rollback voting-app 1 -n capstone --wait --timeout 120s`), which created Revision 3 and successfully restored the workloads to healthy `Running` status.
+* **CI Security Gates**:
   - Worker crash-safety tests passed in GitHub Actions.
-  - Trivy scan passed with 0 actionable `CRITICAL` vulnerabilities across all three application images before publishing to Docker Hub.
+  - At the time of testing, Trivy scans verified 0 actionable `CRITICAL` vulnerabilities across all three application images before publishing to Docker Hub.
 
 ---
 
@@ -374,15 +389,15 @@ The following operational evidence was verified during capstone testing:
 
 To achieve full alignment with the Capstone 1 brief and stretch objectives, the following items remain outstanding:
 
-1. **Cloud Kubernetes Cluster Provisioning (Step 3)**:
-   - Terraform files targeting the default VPC are complete but have not been run against an active AWS subscription.
-   - Outstanding action: Run `terraform init` and `terraform apply` to provision AWS EKS, test destruction and recreation from code, and deploy the Helm release to EKS.
+1. **Cloud Kubernetes / AWS EKS Provisioning and Terraform Lifecycle (Step 3)**:
+   - AWS infrastructure has not been provisioned, and no cloud resources were created to avoid recurring hosting costs.
+   - While Terraform configurations targeting the default VPC are complete, validating the cluster lifecycle on AWS remains outstanding: executing `terraform init` and `terraform apply` to provision AWS EKS, verifying destruction and recreation from code, and deploying the application release onto the provisioned cloud cluster.
 2. **Automated CD Deployment in GitHub Actions (Step 4 / Done Means)**:
-   - The current workflow in `.github/workflows/ci.yaml` builds, scans, and pushes images, but does not deploy them to a cluster.
-   - Outstanding action: Add a deployment job or integrate a GitOps controller (such as Argo CD, as listed under optional stretch).
+   - Automated deployment is not yet implemented. The workflow in `.github/workflows/ci.yaml` automates Continuous Integration—testing, building, scanning, and pushing container images—but does not deploy them to a cluster.
+   - The brief establishes automated deployment ("One push builds, scans and deploys") as a mandatory completion criterion. In contrast, integrating a dedicated GitOps controller such as Argo CD is designated by the brief as an optional stretch goal ("Only if you finish early"). Meeting the core requirement requires implementing an automated deployment step (e.g., via GitHub Actions), whereas Argo CD remains an optional enhancement.
 3. **Persistent Storage for Stateful Services (Known Limitation)**:
-   - PostgreSQL and Redis deployments in `charts/voting-app` currently mount ephemeral `emptyDir: {}` storage volumes.
-   - Outstanding action: Replace `emptyDir` with `PersistentVolumeClaim` (PVC) backed by cloud storage (e.g., AWS EBS CSI driver).
-4. **Production Secrets Management (Secret Hygiene Gap)**:
-   - Default database credentials (`POSTGRES_USER`, `POSTGRES_PASSWORD`) are currently checked into Git in `values.yaml` and `docker-compose.yml`.
-   - Outstanding action: Remove plain text credentials from Git and integrate an external secrets manager (such as AWS Secrets Manager or HashiCorp Vault via External Secrets Operator).
+   - The PostgreSQL database and Redis queue deployments in `charts/voting-app` currently use ephemeral `emptyDir: {}` storage volumes. While `emptyDir` storage persists across in-place container restarts within an existing pod, it does not provide durable storage across pod replacement or rescheduling onto another node.
+   - Outstanding action: Replace `emptyDir` volumes with `PersistentVolumeClaim` (PVC) resources backed by persistent cloud block storage (such as the AWS EBS CSI driver) to guarantee data persistence across pod lifecycle events.
+4. **Production Secrets Management for Tracked Credentials (Secret Hygiene Gap)**:
+   - Default database credentials (`POSTGRES_USER` and `POSTGRES_PASSWORD`) are currently defined in plain text within tracked configuration files (`charts/voting-app/values.yaml` and `docker-compose.yml`).
+   - Outstanding action: Remove hardcoded credentials from repository configuration files, rotate any credentials that may have been exposed in git history, and adopt an appropriate secrets manager (such as AWS Secrets Manager or HashiCorp Vault via External Secrets Operator) to inject credentials dynamically.
