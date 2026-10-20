@@ -36,3 +36,13 @@ helm.sh/chart: {{ include "voting-app.chart" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+{{/*
+Get the database secret name.
+*/}}
+{{- define "voting-app.dbSecretName" -}}
+{{- if .Values.db.auth.existingSecret -}}
+{{- .Values.db.auth.existingSecret -}}
+{{- else -}}
+{{- printf "%s-db-secret" (include "voting-app.fullname" .) -}}
+{{- end -}}
+{{- end }}

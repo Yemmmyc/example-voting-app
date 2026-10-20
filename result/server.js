@@ -17,8 +17,13 @@ io.on('connection', function (socket) {
   });
 });
 
+// Database connection string resolved from environment variable DATABASE_URL,
+// with a local-development fallback for Docker Compose workflows.
+var defaultConnectionString = 'postgres://postgres:postgres@db/postgres';
+var connectionString = process.env.DATABASE_URL || defaultConnectionString;
+
 var pool = new Pool({
-  connectionString: 'postgres://postgres:postgres@db/postgres'
+  connectionString: connectionString
 });
 
 async.retry(

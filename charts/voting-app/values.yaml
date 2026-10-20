@@ -105,10 +105,47 @@ db:
     type: ClusterIP
     port: 5432
     targetPort: 5432
+  # ---------------------------------------------------------------------------
+  # Database Authentication & Secrets Configuration
+  # ---------------------------------------------------------------------------
+  # NOTE: This chart does NOT create a Kubernetes Secret containing credentials.
+  # The database Secret must exist before installing or upgrading the chart.
+  # For production and cluster deployments, create a Kubernetes Secret containing
+  # database credentials and connection strings, and specify its name here.
+  #
+  # Example pre-created Secret:
+  #   kubectl create secret generic voting-app-db-secret \
+  #     --namespace capstone \
+  #     --from-literal=postgres-user=postgres \
+  #     --from-literal=postgres-password=<STRONG_PASSWORD> \
+  #     --from-literal=postgres-db=postgres \
+  #     --from-literal=worker-connection-string="Server=db;Username=postgres;Password=<STRONG_PASSWORD>;Database=postgres;" \
+  #     --from-literal=result-database-url="postgres://postgres:<STRONG_PASSWORD>@db/postgres"
+  #
   auth:
-    username: postgres
-    password: postgres
-    database: postgres
+    # Name of the existing Kubernetes Secret to source database credentials from.
+    # If empty, defaults to "<release-fullname>-db-secret".
+    existingSecret: ""
+
+    # Key names within the Kubernetes Secret
+    secretKeys:
+      usernameKey: "postgres-user"
+      passwordKey: "postgres-password"
+      databaseKey: "postgres-db"
+      workerConnectionStringKey: "worker-connection-string"
+      resultConnectionStringKey: "result-database-url"
+
+    # Database name
+    database: "postgres"
+
+    # -------------------------------------------------------------------------
+    # LOCAL-DEVELOPMENT ONLY DEFAULTS (INSECURE)
+    # -------------------------------------------------------------------------
+    # WARNING: Retained strictly for backward compatibility and local testing references.
+    # Production credentials must be supplied via a pre-created Kubernetes Secret referenced
+    # in existingSecret, and will never be rendered as literal values into manifests.
+    username: "postgres"
+    password: "postgres"
   resources:
     limits:
       cpu: 250m

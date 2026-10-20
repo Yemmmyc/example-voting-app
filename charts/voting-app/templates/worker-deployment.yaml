@@ -20,6 +20,12 @@ spec:
         - name: worker
           image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
           imagePullPolicy: {{ .Values.worker.image.pullPolicy | default "IfNotPresent" }}
+          env:
+            - name: DB_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "voting-app.dbSecretName" . }}
+                  key: {{ .Values.db.auth.secretKeys.workerConnectionStringKey | default "worker-connection-string" }}
           {{- with .Values.worker.resources }}
           resources:
             {{- toYaml . | nindent 12 }}

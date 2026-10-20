@@ -23,6 +23,12 @@ spec:
           ports:
             - name: result
               containerPort: 80
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "voting-app.dbSecretName" . }}
+                  key: {{ .Values.db.auth.secretKeys.resultConnectionStringKey | default "result-database-url" }}
           {{- with .Values.result.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
