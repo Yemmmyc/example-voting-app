@@ -60,8 +60,8 @@ This project is evaluated against the *DevOps Capstone Projects (Beginner Editio
 | **1. Run locally** | Fork repo, run `docker compose up`. Cast a vote and see it counted. | `docker-compose.yml` with healthchecks, Vote (:8080), Result (:8081). | **Verified** (HTTP 200, vote cast and tallied). |
 | **2. Containerize safely** | Pin base images, run as non-root, add `.dockerignore`, build all images. | Dockerfiles in `vote/`, `result/`, `worker/` with version tags, non-root users, `.dockerignore`. | **Verified** (Hardened images build and run; version-tagged, not SHA-pinned). |
 | **3. Terraform k8s cluster** | Terraform builds a Kubernetes cluster in default VPC, destroy and recreate. | Manifests in `terraform/` (`vpc.tf`, `main.tf`, `iam.tf`) targeting default VPC. | **Code Ready / Cloud Unapplied** (Discovers default VPC; validated on local `kind`). |
-| **4. Automate with GitHub Actions** | Push triggers tests, Trivy scan, build and push tagged with commit SHA. | `.github/workflows/ci.yaml` runs worker tests, Trivy security gate, and pushes to Docker Hub. | **CI Verified / CD Outstanding** (Builds/scans/pushes; does not auto-deploy to k8s). |
-| **5. Deploy and roll back with Helm** | One chart, one values file. Ship a bad release on purpose, then run `helm rollback`. | Helm chart under `charts/voting-app/`, single `values.yaml`, tested failure & rollback. | **Verified on Local Cluster** (Revision 1 deployed, Revision 2 failed, Revision 3 restored). |
+| **4. Automate with GitHub Actions** | Push triggers tests, Trivy scan, build and push tagged with commit SHA. | `.github/workflows/ci.yaml` runs worker tests, Trivy security gate, and pushes to Docker Hub. | **CI Verified (commit 9aff4d6) / CD Outstanding** (Builds/scans/pushes; does not auto-deploy to k8s). |
+| **5. Deploy and roll back with Helm** | One chart, one values file. Ship a bad release on purpose, then run `helm rollback`. | Helm chart under `charts/voting-app/`, single `values.yaml`, tested failure & rollback; upgraded to Revision 4 with Secret. | **Verified on Local Cluster** (Revisions 1–3 tested deploy/fail/rollback; Revision 4 deployed 1/1 ready). |
 
 ### Hand In Deliverables Status (Page 5 Brief)
 
@@ -75,16 +75,17 @@ This project is evaluated against the *DevOps Capstone Projects (Beginner Editio
 The project is assessed against the four completion criteria defined in the brief:
 
 1. **One push builds, scans and deploys**: **NOT YET MET (Outstanding Gap)**
-   - The current GitHub Actions workflow validates code and pushes verified images to Docker Hub on merge to `main`.
+   - The GitHub Actions workflow validated code, passed worker crash-safety tests, passed Trivy security scans, and pushed verified images to Docker Hub on commit `9aff4d6`.
    - Automated CD deployment to a live Kubernetes cluster is **not** implemented; the pipeline stops at registry publishing.
 2. **The environment rebuilds from code**: **PARTIALLY MET (Local Demonstrated / Cloud Outstanding)**
-   - Local deployment and workload recovery were verified using Docker Compose and Helm.
+   - Local deployment and workload recovery were verified using Docker Compose and Helm (including recovery from local container runtime metadata desynchronization and successful database state restore).
    - Cloud environment recreation from code (provisioning, destroying, and recreating the AWS EKS cluster via Terraform) has **not** been demonstrated because AWS infrastructure has not been provisioned.
-3. **No secrets in Git**: **NOT YET MET (Outstanding Gap)**
+3. **No secrets in Git**: **PARTIALLY MET (Ongoing Secret Hygiene Gap)**
    - Docker Hub credentials are appropriately secured via GitHub Actions secrets.
-   - However, default database credentials (`POSTGRES_USER: "postgres"`, `POSTGRES_PASSWORD: "postgres"`) remain tracked in plain text in [`charts/voting-app/values.yaml`](charts/voting-app/values.yaml) and [`docker-compose.yml`](docker-compose.yml). Full compliance requires removing and rotating hardcoded credentials and integrating a secret manager.
+   - Commit `9aff4d6` decoupled production database credentials from Helm manifests by consuming a pre-created Kubernetes Secret (`voting-app-db-secret`) and updated application code to read from environment variables.
+   - However, default/fallback credentials remain in tracked local configuration files (`.env.example` and `charts/voting-app/values.yaml`), and Git history retains prior commits with credentials. Full compliance requires adopting a production secrets manager (e.g., AWS Secrets Manager or HashiCorp Vault via External Secrets Operator) and credential rotation.
 4. **Rollback is shown live**: **MET ON LOCAL CLUSTER (Cloud Demonstration Pending)**
-   - Verified on a local `kind` Kubernetes cluster: Revision 1 deployed healthy workloads, Revision 2 failed due to an intentional bad image tag, and `helm rollback voting-app 1` generated Revision 3, successfully restoring healthy running workloads.
+   - Verified on local `kind` cluster (`capstone-cluster`): Revision 1 deployed healthy workloads, Revision 2 failed due to an intentional bad image tag (`ImagePullBackOff`), and `helm rollback voting-app 1` generated Revision 3, restoring healthy workloads. Following this, Revision 4 was upgraded with external database Secret integration.
    - Demonstrating rollback on provisioned AWS EKS remains pending cloud deployment.
 
 ---
@@ -291,23 +292,42 @@ helm template voting-app charts/voting-app
 
 ### Local Cluster Installation
 
-Deploy the chart to the `capstone` namespace on the local cluster:
+#### 1. Database Secret Pre-requisite
 
-```bash
-helm upgrade --install voting-app charts/voting-app \
-  --namespace capstone \
-  --create-namespace
-```
+> [!IMPORTANT]
+> **Secret Pre-requisite**: This Helm chart does **not** create or template a Kubernetes Secret containing database credentials. The Secret **must exist in the target namespace before installing or upgrading the chart** (either matching the default name `<release-fullname>-db-secret`, or specified via `db.auth.existingSecret`).
+>
+> **Required Secret Keys**: The Secret must supply all five keys consumed by the database, worker, and Result deployments:
+> - `postgres-user`: PostgreSQL database username
+> - `postgres-password`: PostgreSQL database password
+> - `postgres-db`: Target database name (e.g. `postgres`)
+> - `worker-connection-string`: Connection string for the .NET worker (e.g. `Server=db;Username=postgres;Password=<STRONG_PASSWORD>;Database=postgres;`)
+> - `result-database-url`: Connection URL for the Node.js Result service (e.g. `postgres://postgres:<STRONG_PASSWORD>@db/postgres`)
+>
+> **Secret Hygiene**: Real credentials must **never** be committed to Git. The example command below uses placeholder values:
+> ```bash
+> kubectl create secret generic voting-app-db-secret \
+>   --namespace capstone \
+>   --from-literal=postgres-user=postgres \
+>   --from-literal=postgres-password="<STRONG_PASSWORD>" \
+>   --from-literal=postgres-db=postgres \
+>   --from-literal=worker-connection-string="Server=db;Username=postgres;Password=<STRONG_PASSWORD>;Database=postgres;" \
+>   --from-literal=result-database-url="postgres://postgres:<STRONG_PASSWORD>@db/postgres"
+> ```
 
-To deploy specific images tagged with a Git commit SHA:
+#### 2. Chart Deployment and Upgrades
+
+Deploy or upgrade the chart to the `capstone` namespace on the local cluster using images tagged with the verified Git commit SHA:
 
 ```bash
 helm upgrade --install voting-app charts/voting-app \
   --namespace capstone \
   --create-namespace \
-  --set vote.image.tag=87ee448fe4849c162306a2b9f71c1b411a504c16 \
-  --set result.image.tag=87ee448fe4849c162306a2b9f71c1b411a504c16 \
-  --set worker.image.tag=87ee448fe4849c162306a2b9f71c1b411a504c16
+  --set vote.image.tag=9aff4d6d7ac83a1011066ae4e74039e937dc9d7a \
+  --set result.image.tag=9aff4d6d7ac83a1011066ae4e74039e937dc9d7a \
+  --set worker.image.tag=9aff4d6d7ac83a1011066ae4e74039e937dc9d7a \
+  --wait \
+  --timeout 180s
 ```
 
 ### Status and Workload Verification
@@ -367,21 +387,28 @@ The following operational evidence was verified during capstone testing:
 
 * **Helm Chart Linting & Templates**:
   - `helm lint charts/voting-app` passed with 0 errors.
-  - `helm template voting-app charts/voting-app` rendered valid Kubernetes manifests.
-* **Workload Health**:
-  - All 5 workloads (`db`, `redis`, `worker`, `vote`, `result`) in the `capstone` namespace reached `Running` status on the local cluster.
+  - `helm template voting-app charts/voting-app` rendered valid Kubernetes manifests with `valueFrom.secretKeyRef` database environment variables.
+* **Workload Health (Helm Revision 4)**:
+  - All 5 application deployments (`db`, `redis`, `worker`, `vote`, `result`) in the `capstone` namespace reached `1/1 Ready` and `Running` status on the local cluster following `helm upgrade voting-app charts/voting-app -n capstone --wait --timeout 180s`.
 * **HTTP Endpoint Health**:
-  - HTTP `200 OK` verified on the Vote service endpoint.
-  - HTTP `200 OK` verified on the Result service endpoint.
-* **Inter-Service Communication**:
-  - Worker console logs verified successful database connection (`Connected to db`) and active Redis resolution (`Connecting to redis` / `Found redis at <ip>`).
-* **Simulated Bad Release & Rollback**:
+  - Docker Compose endpoints validated: HTTP `200 OK` on Vote ([http://localhost:8080](http://localhost:8080)) and Result ([http://localhost:8081](http://localhost:8081)).
+  - Kubernetes NodePort endpoints validated: HTTP `200 OK` verified on Vote (:31000) and Result (:31001).
+* **Inter-Service Communication & Database State**:
+  - Worker console logs verified active Redis queue resolution and persistent database connection.
+  - Result service verified connecting to PostgreSQL and resolving the `public.votes` relation.
+  - A local PostgreSQL database dump was executed prior to the Helm upgrade, and the saved vote row was restored and verified in `public.votes` afterward.
+* **Kind Cluster Runtime Recovery**:
+  - The local `capstone-cluster` was recovered successfully after an upstream containerd v2.0.2 metadata desynchronization failure (#10848) caused by an abrupt system shutdown.
+  - Targeted recovery purged 6 confirmed orphaned sandbox metadata entries using native `ctr` commands, preserving all container layer caches, the original `config.toml`, and timestamped BoltDB backups.
+* **Simulated Bad Release & Rollback (Revisions 1–3)**:
   - **Revision 1**: Initial deployment of the verified application release.
   - **Revision 2**: Deliberately failed release triggered by deploying an invalid Vote container image tag, producing `ImagePullBackOff` and an unhealthy rollout.
   - **Revision 3**: Executed a rollback to revision 1 (`helm rollback voting-app 1 -n capstone --wait --timeout 120s`), which created Revision 3 and successfully restored the workloads to healthy `Running` status.
-* **CI Security Gates**:
+  - **Revision 4**: Upgraded the release to incorporate external Kubernetes Secret configuration (`voting-app-db-secret`), reaching 1/1 ready across all workloads.
+* **CI Security Gates & Pipeline Success**:
   - Worker crash-safety tests passed in GitHub Actions.
-  - At the time of testing, Trivy scans verified 0 actionable `CRITICAL` vulnerabilities across all three application images before publishing to Docker Hub.
+  - Trivy scans verified 0 actionable `CRITICAL` vulnerabilities across all three application images before publishing to Docker Hub.
+  - Full CI workflow succeeded on commit `9aff4d6`.
 
 ---
 
@@ -399,5 +426,5 @@ To achieve full alignment with the Capstone 1 brief and stretch objectives, the 
    - The PostgreSQL database and Redis queue deployments in `charts/voting-app` currently use ephemeral `emptyDir: {}` storage volumes. While `emptyDir` storage persists across in-place container restarts within an existing pod, it does not provide durable storage across pod replacement or rescheduling onto another node.
    - Outstanding action: Replace `emptyDir` volumes with `PersistentVolumeClaim` (PVC) resources backed by persistent cloud block storage (such as the AWS EBS CSI driver) to guarantee data persistence across pod lifecycle events.
 4. **Production Secrets Management for Tracked Credentials (Secret Hygiene Gap)**:
-   - Default database credentials (`POSTGRES_USER` and `POSTGRES_PASSWORD`) are currently defined in plain text within tracked configuration files (`charts/voting-app/values.yaml` and `docker-compose.yml`).
-   - Outstanding action: Remove hardcoded credentials from repository configuration files, rotate any credentials that may have been exposed in git history, and adopt an appropriate secrets manager (such as AWS Secrets Manager or HashiCorp Vault via External Secrets Operator) to inject credentials dynamically.
+   - While commit `9aff4d6` transitioned the Helm chart to source credentials from a pre-created Kubernetes Secret (`voting-app-db-secret`), default/fallback credentials remain defined in tracked local configuration files (`.env.example` and `charts/voting-app/values.yaml`).
+   - Outstanding action: Adopt a production-grade secret management solution (such as AWS Secrets Manager or HashiCorp Vault via External Secrets Operator) to inject credentials dynamically without static defaults, and scrub/rotate historical credentials from Git history.
