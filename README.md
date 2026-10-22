@@ -412,6 +412,28 @@ The following operational evidence was verified during capstone testing:
 
 ---
 
+## Verification Evidence
+
+Visual artifacts and execution evidence captured during capstone testing and validation:
+
+### 1. GitHub Actions CI Pipeline
+![GitHub Actions CI Pipeline](docs/screenshots/capstone1-github-actions-success-72e63c1.png)
+*GitHub Actions CI workflow execution for commit `72e63c1` on `main`, showing successful application test suite execution and matrix builds for vote, result, and worker services. (Continuous Delivery / automated cluster deployment remains an outstanding requirement).*
+
+### 2. GitHub Repository Structure
+![GitHub Repository Structure](docs/screenshots/capstone1-github-repository-structure-72e63c1.png)
+*GitHub repository view at commit `72e63c1` showing project layout across microservice components, the unified Helm chart, Terraform configurations, and CI workflows.*
+
+### 3. Helm Release History & Rollback
+![Helm Release History and Rollback](docs/screenshots/capstone1-helm-history-rollback.png)
+*Terminal output showing local cluster node readiness (`capstone-cluster-control-plane`) and `helm history` verifying initial deployment (Revision 1), intentional upgrade failure (Revision 2), successful rollback to Revision 1 (Revision 3), and subsequent upgrade (Revision 4).*
+
+### 4. Current Helm Status (Revision 4)
+![Current Helm Status (Revision 4)](docs/screenshots/capstone1-helm-status-revision-4.png)
+*Terminal output for `helm status voting-app -n capstone` confirming Revision 4 is in `deployed` status on the local cluster.*
+
+---
+
 ## Outstanding Work & Gaps Against Brief
 
 To achieve full alignment with the Capstone 1 brief and stretch objectives, the following items remain outstanding:
